@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>حماية البرنامج بكلمة سر</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--ink:#14203a;--mut:#6b7587;--gold:#d99a1e;--ok:#0b7a55;--err:#b4301e;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1420;--card:#18202f;--ink:#eef1f6;--mut:#9aa6ba}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;padding:16px}
+.c{max-width:460px;margin:0 auto;background:var(--card);border-radius:20px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+h1{margin:0 0 6px;font-size:21px}p{color:var(--mut);font-size:13.5px;line-height:1.7;margin:6px 0}
+label{display:block;margin:14px 0 4px;font-weight:600;font-size:14px}
+input{width:100%;padding:12px;border:1px solid #c9cfda;border-radius:12px;font-size:16px;background:transparent;color:inherit}
+button,a.dl{display:block;width:100%;text-align:center;text-decoration:none;padding:13px;border:0;border-radius:12px;background:var(--gold);color:#1b1300;font-weight:700;font-size:16px;margin-top:16px}
+button:disabled{opacity:.6}#m{margin-top:12px;font-size:13.5px;line-height:1.7}.ok{color:var(--ok)}.er{color:var(--err)}
+</style></head><body><div class="c">
+<h1>🔒 حماية البرنامج بكلمة سر</h1>
+<p>يشفّر ملف البرنامج داخل جهازك فقط. لا يُرسَل أي شيء إلى الإنترنت. تحصل على ملف <b>index.html</b> لا يفتح إلا باسم المستخدم وكلمة السر اللذين تختارهما.</p>
+<label>1. ملف البرنامج (HTML)</label><input id="file" type="file" accept=".html,text/html">
+<label>2. اسم المستخدم</label><input id="u" type="text" autocomplete="off" autocapitalize="none">
+<label>3. كلمة السر (12 حرفاً أو أكثر)</label><input id="p" type="password" autocomplete="new-password">
+<label>4. أعد كلمة السر</label><input id="p2" type="password" autocomplete="new-password">
+<button id="go" type="button">تشفير وإنشاء الملف</button>
+<div id="m" role="status"></div>
+<p><b>مهم:</b> إذا نسيت كلمة السر فلا يمكن استرجاعها. احتفظ بنسخة من ملفك الأصلي وبكلمة السر في مكان آمن.</p>
+</div>
+<script>
+const PB_ITER = 600000;
+const te = new TextEncoder();
+function toB64(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+function fromB64(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+async function deriveKey(user,pass,salt,iters){
+  const base=await crypto.subtle.importKey('raw',te.encode(user.trim().toLowerCase()+'\u0000'+pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iters,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+}
+async function encryptHtml(html,user,pass){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await deriveKey(user,pass,salt,PB_ITER);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,te.encode(html)));
+  return {s:toB64(salt),i:toB64(iv),n:PB_ITER,c:toB64(ct)};
+}
+async function selfCheck(payload,user,pass,original){
+  const key=await deriveKey(user,pass,fromB64(payload.s),payload.n);
+  const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(payload.i)},key,fromB64(payload.c));
+  return new TextDecoder().decode(buf)===original;
+}
+
+const $=id=>document.getElementById(id);
+function say(t,c){const m=$('m');m.textContent=t;m.className=c||''}
+const TPL="<!doctype html>\n<html lang=\"ar\" dir=\"rtl\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"robots\" content=\"noindex,nofollow\"><title>\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644</title>\n<style>\n:root{--bg:#f4f1ea;--card:#fff;--ink:#14203a;--mut:#6b7587;--gold:#d99a1e;--err:#b4301e;color-scheme:light dark}\n@media (prefers-color-scheme:dark){:root{--bg:#0e1420;--card:#18202f;--ink:#eef1f6;--mut:#9aa6ba}}\n*{box-sizing:border-box}html,body{height:100%;margin:0}\nbody{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,\"Segoe UI\",Tahoma,sans-serif;display:grid;place-items:center;padding:16px}\nform{width:100%;max-width:380px;background:var(--card);border-radius:20px;padding:26px 22px;box-shadow:0 10px 30px rgba(0,0,0,.15)}\nh1{margin:0 0 4px;font-size:22px}p.s{margin:0 0 18px;color:var(--mut);font-size:13px}\ninput[type=text],input[type=password]{width:100%;padding:13px 14px;margin:6px 0;border:1px solid #c9cfda;border-radius:12px;font-size:16px;background:transparent;color:inherit}\nlabel.r{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px;color:var(--mut)}\nbutton{width:100%;padding:13px;border:0;border-radius:12px;background:var(--gold);color:#1b1300;font-weight:700;font-size:16px;margin-top:6px}\nbutton:disabled{opacity:.6}#m{min-height:20px;margin:10px 0 0;font-size:13px;color:var(--err)}\n</style></head><body>\n<form id=\"f\" autocomplete=\"on\">\n<h1>\ud83d\udd12 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644</h1><p class=\"s\">\u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629 \u062e\u0627\u0635\u0629.</p>\n<input id=\"u\" type=\"text\" name=\"username\" autocomplete=\"username\" placeholder=\"\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\" autocapitalize=\"none\" required>\n<input id=\"p\" type=\"password\" name=\"password\" autocomplete=\"current-password\" placeholder=\"\u0643\u0644\u0645\u0629 \u0627\u0644\u0633\u0631\" required>\n<label class=\"r\"><input id=\"r\" type=\"checkbox\"> \u062a\u0630\u0643\u0631\u0646\u064a \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u062c\u0647\u0627\u0632</label>\n<button id=\"b\" type=\"submit\">\u062f\u062e\u0648\u0644</button><p id=\"m\" role=\"alert\"></p>\n</form>\n<script>\nconst D=__PAYLOAD__;\nconst te=new TextEncoder();\nconst fromB64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));\nconst $=id=>document.getElementById(id);\nlet fails=0;\ntry{const su=localStorage.getItem('bbu');if(su){$('u').value=su;$('r').checked=true}}catch(_){}\nconst OUT='<button onclick=\"try{localStorage.removeItem(\\'bbk\\')}catch(e){}location.reload()\" style=\"position:fixed;right:8px;bottom:8px;z-index:99999;opacity:.55;border:0;border-radius:14px;padding:6px 10px;font-size:11px;background:#14203a;color:#fff\">\u062e\u0631\u0648\u062c</button>';\nasync function derive(u,p){\n  const base=await crypto.subtle.importKey('raw',te.encode(u.trim().toLowerCase()+'\\u0000'+p),'PBKDF2',false,['deriveKey']);\n  return crypto.subtle.deriveKey({name:'PBKDF2',salt:fromB64(D.s),iterations:D.n,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);\n}\nasync function openApp(key){\n  const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(D.i)},key,fromB64(D.c));\n  let html=new TextDecoder().decode(buf);\n  const i=html.lastIndexOf('</body>');\n  html=i>=0?html.slice(0,i)+OUT+html.slice(i):html+OUT;\n  document.open();document.write(html);document.close();\n}\nasync function auto(){\n  try{\n    const k=localStorage.getItem('bbk');\n    if(!k||localStorage.getItem('bbs')!==D.s)return;\n    await openApp(await crypto.subtle.importKey('raw',fromB64(k),'AES-GCM',false,['decrypt']));\n  }catch(e){try{localStorage.removeItem('bbk')}catch(_){}}\n}\n$('f').addEventListener('submit',async e=>{\n  e.preventDefault();\n  if(!(window.crypto&&crypto.subtle)){$('m').textContent='\u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u0627 \u064a\u062f\u0639\u0645 \u0627\u0644\u062a\u0634\u0641\u064a\u0631. \u0627\u0641\u062a\u062d \u0627\u0644\u0631\u0627\u0628\u0637 \u0639\u0628\u0631 https.';return}\n  $('b').disabled=true;$('m').textContent='';\n  try{\n    if(fails)await new Promise(r=>setTimeout(r,Math.min(8000,fails*1500)));\n    const key=await derive($('u').value,$('p').value);\n    if($('r').checked){try{const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));let s='';raw.forEach(x=>s+=String.fromCharCode(x));localStorage.setItem('bbk',btoa(s));localStorage.setItem('bbs',D.s);localStorage.setItem('bbu',$('u').value.trim())}catch(_){}}else{try{localStorage.removeItem('bbu')}catch(_){}}\n    await openApp(key);\n  }catch(err){fails++;try{localStorage.removeItem('bbk')}catch(_){}$('m').textContent='\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0633\u0631 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d\u0629.';$('b').disabled=false}\n});\nauto();\n<\/script></body></html>\n";
+$('go').onclick=async()=>{
+  if(!(window.crypto&&crypto.subtle)){say('هذا المتصفح لا يدعم التشفير هنا. افتح هذه الصفحة عبر رابط https.','er');return}
+  const f=$('file').files[0],u=$('u').value.trim(),p=$('p').value;
+  if(!f){say('اختر ملف البرنامج أولاً.','er');return}
+  if(!u){say('اكتب اسم المستخدم.','er');return}
+  if(p.length<12){say('كلمة السر قصيرة. استخدم 12 حرفاً على الأقل، ويفضل جملة طويلة.','er');return}
+  if(p!==$('p2').value){say('كلمتا السر غير متطابقتين.','er');return}
+  $('go').disabled=true;say('جارٍ التشفير... قد يستغرق ثواني.');
+  try{
+    const html=await f.text();
+    if(html.indexOf('<html')<0&&html.indexOf('<!doctype')<0&&html.indexOf('<!DOCTYPE')<0){say('هذا لا يبدو ملف HTML صالحاً.','er');$('go').disabled=false;return}
+    const payload=await encryptHtml(html,u,p);
+    if(!await selfCheck(payload,u,p,html)){say('فشل فحص التشفير. لم يُنشأ ملف.','er');$('go').disabled=false;return}
+    const out=TPL.replace('__PAYLOAD__',()=>JSON.stringify(payload));
+    const url=URL.createObjectURL(new Blob([out],{type:'text/html'}));
+    $('m').className='ok';$('m').innerHTML='';
+    const t=document.createElement('div');t.textContent='تم التشفير والتحقق منه. حمّل الملف وارفعه بدل index.html القديم.';
+    const a=document.createElement('a');a.className='dl';a.href=url;a.download='index.html';a.textContent='تحميل index.html المحمي';
+    $('m').append(t,a);
+  }catch(e){say('حدث خطأ: '+e.message,'er')}
+  $('go').disabled=false;
+};
+</script></body></html>
